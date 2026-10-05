@@ -1,0 +1,48 @@
+diff --git a/main/audio/audio_service.cc b/main/audio/audio_service.cc
+index 350ac58..bd24922 100644
+--- a/main/audio/audio_service.cc
++++ b/main/audio/audio_service.cc
+@@ -517,6 +517,24 @@ bool AudioService::PushPacketToDecodeQueue(std::unique_ptr<AudioStreamPacket> pa
+     return true;
+ }
+ 
++bool AudioService::PushPcmToPlaybackQueue(std::vector<int16_t>&& pcm, bool wait) {
++    std::unique_lock<std::mutex> lock(audio_queue_mutex_);
++    if (audio_playback_queue_.size() >= MAX_PLAYBACK_TASKS_IN_QUEUE) {
++        if (wait) {
++            audio_queue_cv_.wait(lock, [this]() { return audio_playback_queue_.size() < MAX_PLAYBACK_TASKS_IN_QUEUE; });
++        } else {
++            return false;
++        }
++    }
++    auto task = std::make_unique<AudioTask>();
++    task->type = kAudioTaskTypeDecodeToPlaybackQueue;
++    task->pcm = std::move(pcm);
++    task->timestamp = 0;
++    audio_playback_queue_.push_back(std::move(task));
++    audio_queue_cv_.notify_all();
++    return true;
++}
++
+ std::unique_ptr<AudioStreamPacket> AudioService::PopPacketFromSendQueue() {
+     std::lock_guard<std::mutex> lock(audio_queue_mutex_);
+     if (audio_send_queue_.empty()) {
+diff --git a/main/audio/audio_service.h b/main/audio/audio_service.h
+index 99db546..f150fcd 100644
+--- a/main/audio/audio_service.h
++++ b/main/audio/audio_service.h
+@@ -128,6 +128,14 @@ public:
+     void SetCallbacks(AudioServiceCallbacks& callbacks);
+ 
+     bool PushPacketToDecodeQueue(std::unique_ptr<AudioStreamPacket> packet, bool wait = false);
++    // StackyChan fork: lets a non-Opus source (the SD-card MP3 player) queue
++    // already-decoded PCM straight onto the shared playback queue, so it serialises
++    // through the same AudioOutputTask()/codec_->OutputData() path voice and SFX use,
++    // rather than writing to the codec directly from an unrelated task (unsafe - see
++    // hal/audio.cpp's mic-test code, which only gets away with that because it never
++    // overlaps a real conversation). Caller must hand over PCM already at the codec's
++    // fixed format (16-bit mono, whatever output_sample_rate() is).
++    bool PushPcmToPlaybackQueue(std::vector<int16_t>&& pcm, bool wait = true);
+     std::unique_ptr<AudioStreamPacket> PopPacketFromSendQueue();
+     void PlaySound(const std::string_view& sound);
+     bool ReadAudioData(std::vector<int16_t>& data, int sample_rate, int samples);

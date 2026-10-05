@@ -1,0 +1,80 @@
+diff --git a/scripts/build_default_assets.py b/scripts/build_default_assets.py
+index 9ca1464..426b17f 100755
+--- a/scripts/build_default_assets.py
++++ b/scripts/build_default_assets.py
+@@ -810,6 +810,14 @@ def build_assets_integrated(wakenet_model_paths, multinet_model_paths, text_font
+ 
+ def main():
+     parser = argparse.ArgumentParser(description='Build default assets based on configuration')
++    # StackyChan fork. The app partition is size-checked by ESP-IDF; the assets partition
++    # was not checked by anything, so an image too large for it was built, reported as a
++    # success, and only failed at flash time — or worse, truncated. Wake word models are
++    # ~296 KB each, which makes overrunning it easy to do by accident.
++    # base 0 so CMake can pass the partition size through as "0x5b0000" unchanged.
++    parser.add_argument('--max_size', type=lambda v: int(v, 0), default=0,
++                        help='Fail if the generated image exceeds this many bytes '
++                             '(the assets partition size). 0 disables the check.')
+     parser.add_argument('--sdkconfig', required=True, help='Path to sdkconfig file')
+     parser.add_argument('--builtin_text_font', help='Builtin text font name (e.g., font_puhui_basic_16_4)')
+     parser.add_argument('--emoji_collection', help='Default emoji collection name (e.g., emojis_32)')
+@@ -849,24 +857,22 @@ def main():
+     wakenet_model_paths = []
+     multinet_model_paths = []
+     
+-    # 1. Only package wakenet models if USE_ESP_WAKE_WORD=y or USE_AFE_WAKE_WORD=y
+-    if wake_word_config['use_esp_wake_word'] or wake_word_config['use_afe_wake_word']:
++    # StackyChan fork: pack whichever model families are actually selected in sdkconfig,
++    # rather than gating on the WAKE_WORD_TYPE Kconfig `choice` upstream uses (which is
++    # exclusive by construction and would drop wakenet models entirely if some other
++    # engine were also selected).
++    if wakenet_model_names:
+         wakenet_model_paths = get_wakenet_model_paths(wakenet_model_names, args.esp_sr_model_path)
+-    elif wakenet_model_names:
+-        print(f"  Note: Found wakenet models {wakenet_model_names} but wake word type is not ESP/AFE, skipping")
+-    
+-    # 2. Error check: if USE_CUSTOM_WAKE_WORD=y but no multinet models selected, report error
++
++    # Error check: if USE_CUSTOM_WAKE_WORD=y but no multinet models selected, report error
+     if wake_word_config['use_custom_wake_word'] and not multinet_model_names:
+         print("Error: USE_CUSTOM_WAKE_WORD is enabled but no multinet models are selected in sdkconfig")
+         print("Please select appropriate CONFIG_SR_MN_* options in menuconfig, or disable USE_CUSTOM_WAKE_WORD")
+         sys.exit(1)
+-    
+-    # 3. Only package multinet models if USE_CUSTOM_WAKE_WORD=y
+-    if wake_word_config['use_custom_wake_word']:
++
++    if multinet_model_names:
+         multinet_model_paths = get_multinet_model_paths(multinet_model_names, args.esp_sr_model_path)
+-    elif multinet_model_names:
+-        print(f"  Note: Found multinet models {multinet_model_names} but USE_CUSTOM_WAKE_WORD is disabled, skipping")
+-    
++
+     # Print model information (only for models that will actually be packaged)
+     if wakenet_model_paths:
+         print(f"  wakenet models: {', '.join(wakenet_model_names)} (will be packaged)")
+@@ -926,7 +932,24 @@ def main():
+     
+     if not success:
+         sys.exit(1)
+-    
++
++    # StackyChan fork: refuse to hand back an image the partition cannot hold.
++    #
++    # Nothing checked this before. ESP-IDF size-checks the app partition and says nothing
++    # about assets, so an oversized assets.bin built cleanly, reported success, and only
++    # went wrong at flash time. With SR models at ~296 KB each, going over is a single
++    # sdkconfig line away.
++    if args.max_size:
++        actual = os.path.getsize(args.output)
++        pct = actual * 100.0 / args.max_size
++        print(f"assets.bin: {actual} bytes of {args.max_size} ({pct:.1f}% of the partition)")
++        if actual > args.max_size:
++            print(f"Error: assets.bin is {actual - args.max_size} bytes too large for the "
++                  f"assets partition.")
++            print("Either drop a wake word model from sdkconfig, or grow the assets "
++                  "partition in partitions.csv (which requires a full USB flash).")
++            sys.exit(1)
++
+     print("Build completed successfully!")
+ 
+ 

@@ -1,0 +1,95 @@
+StackyChan — install kit
+========================
+
+Everything needed is in this folder. Nothing to download, nothing to install.
+Windows only (the flashing tool is a Windows .exe).
+
+
+WHAT TO DO
+----------
+
+  1. Unzip this folder somewhere real — Desktop is fine.
+     Do NOT run it from inside the zip; Windows hides the .bin files from it.
+
+  2. Plug the robot into your PC with a USB-C cable that carries DATA.
+     A charge-only cable looks identical and will waste twenty minutes.
+
+  3. Double-click  3-FLASH.bat  and follow it.
+     It tells you when to hold RESET, checks the chip answers before it
+     writes anything, and stops safely if it cannot.
+
+  4. When it finishes, double-click  6-FIND-DEVICE.bat  to get the robot's
+     IP address. Open that in a browser. Or try:  http://stackchan.local/
+
+That's it.
+
+
+READ THIS BEFORE YOU FLASH
+--------------------------
+
+This firmware uses a different partition layout from M5Stack's stock firmware,
+so the first install CANNOT be done from a web page. It has to go on over USB
+with 3-FLASH.bat.
+
+The reason: the assets partition grew from 4 MB to 5.69 MB to hold eleven
+wake-word models. An over-the-air update rewrites a firmware slot; it cannot
+move a partition boundary.
+
+The same is true whenever the set of wake words changes: those models live in
+the assets partition, and only a USB flash writes it.
+
+Updates that change the program alone are meant to go through the portal's
+Update page: drag the new stack-chan.bin on to it.
+
+Your WiFi credentials and servo calibration are NOT erased. They live in a
+separate area this script does not touch.
+
+
+WHAT THIS FIRMWARE DOES
+-----------------------
+
+  * Three faces: MAX, VOLT and the stock face. Pick one in the portal or on
+    the robot's own CHARACTER screen.
+
+  * Eleven wake phrases to choose from. Portal -> Wake word -> pick -> reboot.
+      "Hi Stack Chan", "Jarvis", "Computer", "Hi M Five", "Hi Wall-E",
+      "Mycroft", "Hey Wanda", "Hey Willow", "Sophia", "Hey Kira", "Hi Jason"
+
+  * The portal configures the whole device:
+      Network   DHCP or a static IP, with netmask/gateway/DNS and a hostname.
+                A bad static address cannot strand the robot — it rolls back
+                to DHCP on its own after two minutes if you never reach it.
+      Time      NTP servers and a timezone.
+      AI        Which server the robot talks to, and which model it asks for.
+      Personas  Up to eight characters, each with its own instructions,
+                voice and face.
+      Memory    Notes the robot's server is given in every conversation.
+      Face      The face, live control of eyes, head and lights, screensaver.
+      Update    Drag a .bin on to it.
+
+  * Run it on a different AI. The robot has no language model inside it — it
+    streams audio to a server. Point it at your own and you choose the model.
+    See server/bridge/README.md in the repo; it speaks Claude, ChatGPT, Groq,
+    Gemini, OpenRouter, Cerebras, Mistral and Ollama.
+
+  * Clock, weather and stock-ticker screens on the robot itself.
+
+
+IF SOMETHING GOES WRONG
+-----------------------
+
+  1-DIAGNOSE.bat      does the PC and the cable see the chip at all
+  2-ERASE.bat         wipe everything and start clean (also clears WiFi)
+  4-BOOTLOG.bat       capture the boot log to bootlog.txt — read that first
+  6-FIND-DEVICE.bat   find the robot's IP on your network
+
+The full recovery kit also has  5-RESTORE-STOCK.bat , which puts M5Stack's own
+firmware back. M5Burner does the same job if your kit does not include it.
+
+The single most useful check: the boot log should say
+
+    App version: 9.9.3-stackychan
+
+If it shows a plain version such as 1.4.4 or 1.5.1 instead, that is M5Stack's
+stock firmware running, not this one, and whatever you are debugging is the
+wrong firmware.

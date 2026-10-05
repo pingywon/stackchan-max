@@ -1,0 +1,26 @@
+--- a/main/application.cc
++++ b/main/application.cc
+@@ -433,10 +433,23 @@
+         retry_delay = 10; // Reset retry delay
+ 
+         if (ota_->HasNewVersion()) {
++#ifdef CONFIG_STACKYCHAN_DISABLE_AUTO_OTA
++            // StackyChan fork: do NOT silently replace this firmware.
++            //
++            // Upstream downloads and flashes whatever the OTA server offers, with no user
++            // consent, then reboots. On a custom build that means the server's stock image
++            // overwrites your firmware the first time the agent reaches the network.
++            //
++            // A manual update path still exists: Setup -> About -> check for updates
++            // (main/hal/hal_ota.cpp), which is deliberate and user-initiated.
++            ESP_LOGW(TAG, "new firmware offered (%s) - AUTO-UPGRADE DISABLED by this build",
++                     ota_->GetFirmwareVersion().c_str());
++#else
+             if (UpgradeFirmware(ota_->GetFirmwareUrl(), ota_->GetFirmwareVersion())) {
+                 return; // This line will never be reached after reboot
+             }
+             // If upgrade failed, continue to normal operation
++#endif
+         }
+ 
+         // No new version, mark the current version as valid

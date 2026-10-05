@@ -1,0 +1,133 @@
+diff --git a/main/audio/processors/afe_audio_processor.cc b/main/audio/processors/afe_audio_processor.cc
+index 15e9cc5..7676e8a 100644
+--- a/main/audio/processors/afe_audio_processor.cc
++++ b/main/audio/processors/afe_audio_processor.cc
+@@ -1,5 +1,6 @@
+ #include "afe_audio_processor.h"
+ #include <esp_log.h>
++#include <esp_heap_caps.h>
+ 
+ #define PROCESSOR_RUNNING 0x01
+ 
+@@ -66,18 +67,40 @@ void AfeAudioProcessor::Initialize(AudioCodec* codec, int frame_duration_ms, srm
+ 
+     afe_iface_ = esp_afe_handle_from_config(afe_config);
+     afe_data_ = afe_iface_->create_from_config(afe_config);
+-    
+-    xTaskCreate([](void* arg) {
++
++    // StackyChan fork: this task's stack used to come from the default (internal SRAM)
++    // heap via plain xTaskCreate, with the return value unchecked. By the time this runs
++    // -- the first time the device actually starts listening, with the wake-word AFE
++    // instance, WiFi/MQTT and everything else already resident -- internal SRAM can be
++    // tight enough that the allocation silently fails: the task never starts, nothing
++    // ever drains the feed ring buffer, and it floods "AFE(FEED) is full" forever with no
++    // other sign anything is wrong. Same failure mode already hit the wake-word task
++    // (see stackychan-prefer-wakenet.patch / stackychan-wakeword-select.patch); this
++    // moves the stack to PSRAM (8 MB, not the scarce ~26 KB internal pool) the same way
++    // EncodeWakeWordData() already does in afe_wake_word.cc, so it can't happen here.
++    const size_t stack_size = 4096;
++    audio_processor_task_stack_ = (StackType_t*)heap_caps_malloc(stack_size, MALLOC_CAP_SPIRAM);
++    assert(audio_processor_task_stack_ != nullptr);
++    audio_processor_task_buffer_ = (StaticTask_t*)heap_caps_malloc(sizeof(StaticTask_t), MALLOC_CAP_INTERNAL);
++    assert(audio_processor_task_buffer_ != nullptr);
++
++    audio_processor_task_ = xTaskCreateStatic([](void* arg) {
+         auto this_ = (AfeAudioProcessor*)arg;
+         this_->AudioProcessorTask();
+         vTaskDelete(NULL);
+-    }, "audio_communication", 4096, this, 3, NULL);
++    }, "audio_communication", stack_size, this, 3, audio_processor_task_stack_, audio_processor_task_buffer_);
+ }
+ 
+ AfeAudioProcessor::~AfeAudioProcessor() {
+     if (afe_data_ != nullptr) {
+         afe_iface_->destroy(afe_data_);
+     }
++    if (audio_processor_task_stack_ != nullptr) {
++        heap_caps_free(audio_processor_task_stack_);
++    }
++    if (audio_processor_task_buffer_ != nullptr) {
++        heap_caps_free(audio_processor_task_buffer_);
++    }
+     vEventGroupDelete(event_group_);
+ }
+ 
+diff --git a/main/audio/processors/afe_audio_processor.h b/main/audio/processors/afe_audio_processor.h
+index fe2f025..f503cc6 100644
+--- a/main/audio/processors/afe_audio_processor.h
++++ b/main/audio/processors/afe_audio_processor.h
+@@ -42,6 +42,10 @@ private:
+     std::mutex input_buffer_mutex_;
+     std::vector<int16_t> output_buffer_;
+ 
++    TaskHandle_t audio_processor_task_ = nullptr;
++    StaticTask_t* audio_processor_task_buffer_ = nullptr;
++    StackType_t* audio_processor_task_stack_ = nullptr;
++
+     void AudioProcessorTask();
+ };
+ 
+diff --git a/main/audio/wake_words/afe_wake_word.cc b/main/audio/wake_words/afe_wake_word.cc
+index 8fc5fef..e5173e4 100644
+--- a/main/audio/wake_words/afe_wake_word.cc
++++ b/main/audio/wake_words/afe_wake_word.cc
+@@ -28,6 +28,14 @@ AfeWakeWord::~AfeWakeWord() {
+         heap_caps_free(wake_word_encode_task_buffer_);
+     }
+ 
++    if (audio_detection_task_stack_ != nullptr) {
++        heap_caps_free(audio_detection_task_stack_);
++    }
++
++    if (audio_detection_task_buffer_ != nullptr) {
++        heap_caps_free(audio_detection_task_buffer_);
++    }
++
+     if (models_ != nullptr) {
+         esp_srmodel_deinit(models_);
+     }
+@@ -80,11 +88,26 @@ bool AfeWakeWord::Initialize(AudioCodec* codec, srmodel_list_t* models_list) {
+     afe_iface_ = esp_afe_handle_from_config(afe_config);
+     afe_data_ = afe_iface_->create_from_config(afe_config);
+ 
+-    xTaskCreate([](void* arg) {
++    // StackyChan fork: plain xTaskCreate pulls this task's stack from internal SRAM with
++    // the return value unchecked -- exactly the failure that made wake word silently stop
++    // responding on real hardware (fixed by prefer-wakenet.patch / the wakenet_model_name_2
++    // fix, but the underlying "task creation can silently fail here" hazard was still
++    // present). The sibling audio_communication task in afe_audio_processor.cc hit the
++    // same class of failure right after, once wake word starts working and this AFE
++    // instance has to coexist with a second one. Move the stack to PSRAM, same pattern
++    // EncodeWakeWordData() already uses below, so a tight internal-heap moment can't
++    // silently kill this task either.
++    const size_t stack_size = 4096;
++    audio_detection_task_stack_ = (StackType_t*)heap_caps_malloc(stack_size, MALLOC_CAP_SPIRAM);
++    assert(audio_detection_task_stack_ != nullptr);
++    audio_detection_task_buffer_ = (StaticTask_t*)heap_caps_malloc(sizeof(StaticTask_t), MALLOC_CAP_INTERNAL);
++    assert(audio_detection_task_buffer_ != nullptr);
++
++    audio_detection_task_ = xTaskCreateStatic([](void* arg) {
+         auto this_ = (AfeWakeWord*)arg;
+         this_->AudioDetectionTask();
+         vTaskDelete(NULL);
+-    }, "audio_detection", 4096, this, 3, nullptr);
++    }, "audio_detection", stack_size, this, 3, audio_detection_task_stack_, audio_detection_task_buffer_);
+ 
+     return true;
+ }
+diff --git a/main/audio/wake_words/afe_wake_word.h b/main/audio/wake_words/afe_wake_word.h
+index 6c2bf72..975aef9 100644
+--- a/main/audio/wake_words/afe_wake_word.h
++++ b/main/audio/wake_words/afe_wake_word.h
+@@ -50,6 +50,10 @@ private:
+     TaskHandle_t wake_word_encode_task_ = nullptr;
+     StaticTask_t* wake_word_encode_task_buffer_ = nullptr;
+     StackType_t* wake_word_encode_task_stack_ = nullptr;
++
++    TaskHandle_t audio_detection_task_ = nullptr;
++    StaticTask_t* audio_detection_task_buffer_ = nullptr;
++    StackType_t* audio_detection_task_stack_ = nullptr;
+     std::deque<std::vector<int16_t>> wake_word_pcm_;
+     std::deque<std::vector<uint8_t>> wake_word_opus_;
+     std::mutex wake_word_mutex_;

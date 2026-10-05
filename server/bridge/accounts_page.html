@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>StackyChan Accounts</title>
+<style>
+:root{
+  --bg:#0b0d12; --panel:#141821; --panel2:#1a1f2b;
+  --line:#252b38; --line2:#323a4b;
+  --ink:#e8ecf3; --dim:#98a2b5; --faint:#6b7588;
+  --accent:#6c8cff; --ok:#2fd4a0; --bad:#ff6b6b; --warn:#ffb454;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --r:12px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased}
+main{max-width:960px;margin:0 auto;padding:28px 16px 80px}
+a{color:var(--accent)}
+header{display:flex;gap:12px;align-items:flex-start;margin-bottom:20px}
+.dot{width:11px;height:11px;border-radius:50%;background:var(--faint);flex:none;margin-top:12px}
+.dot.up{background:var(--ok);box-shadow:0 0 0 4px rgba(47,212,160,.15)}
+.dot.down{background:var(--bad);box-shadow:0 0 0 4px rgba(255,107,107,.15)}
+h1{font-size:26px;margin:0 0 4px;letter-spacing:-.3px}
+.lede{color:var(--dim);margin:0;max-width:64ch}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+  padding:20px;margin-bottom:16px}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.09em;color:var(--dim);
+  margin:0 0 14px;font-weight:600}
+h2 small{text-transform:none;letter-spacing:0;font-weight:400;color:var(--faint);margin-left:8px}
+.note{color:var(--dim);font-size:14.5px;margin:12px 0 0}
+.fine{color:var(--faint);font-size:13.5px;margin:14px 0 0}
+label{display:block;color:var(--dim);font-size:14px;font-weight:500;margin:16px 0 6px}
+
+.choice{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.choice button{background:var(--bg);border:1px solid var(--line2);border-radius:10px;
+  color:var(--ink);padding:12px 14px;text-align:left;cursor:pointer;font:inherit;min-height:64px}
+.choice button b{display:block;font-size:17px}
+.choice button span{display:block;color:var(--faint);font-size:13px}
+.choice button.on{border-color:var(--accent);background:rgba(108,140,255,.12);
+  box-shadow:inset 0 0 0 1px var(--accent)}
+.choice button.on span{color:var(--accent)}
+.choice button:disabled{opacity:.45;cursor:not-allowed}
+
+input,select{background:var(--bg);color:var(--ink);border:1px solid var(--line2);border-radius:8px;
+  padding:11px 12px;font:15px/1.4 var(--mono);width:100%;min-height:44px}
+select{font-family:inherit;cursor:pointer}
+input:focus,select:focus{outline:none;border-color:var(--accent)}
+select:disabled{opacity:.5}
+
+.btn{background:var(--panel2);color:var(--ink);border:1px solid var(--line2);border-radius:8px;
+  padding:10px 16px;cursor:pointer;font-family:inherit;font-size:15px;font-weight:500;
+  line-height:1.2;min-height:44px}
+.btn:hover:not(:disabled){border-color:var(--accent)}
+.btn:disabled{opacity:.5;cursor:wait}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#0a0d16;font-weight:600}
+.btn.danger{color:var(--bad)}
+.btn.danger.arm{background:var(--bad);border-color:var(--bad);color:#0a0d16}
+.linkish{background:none;border:0;color:var(--accent);cursor:pointer;font:inherit;font-size:13.5px;padding:0}
+
+.accounts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:16px}
+.accounts .card{margin:0;display:flex;flex-direction:column}
+.acct-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.acct-head h3{margin:0;font-size:21px}
+.acct-head small{display:block;color:var(--faint);font-size:13px;font-weight:400}
+.pill{font-size:13px;padding:4px 10px;border-radius:99px;border:1px solid var(--line2);
+  color:var(--dim);white-space:nowrap}
+.pill.ok{color:var(--ok);border-color:rgba(47,212,160,.45);background:rgba(47,212,160,.08)}
+.tag{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+  padding:2px 8px;border-radius:6px;background:rgba(47,212,160,.12);color:var(--ok);vertical-align:middle;margin-left:8px}
+.meta{color:var(--dim);font-size:14.5px;margin:10px 0 0;min-height:1.5em}
+.free{color:var(--ok);font-size:14px;margin:10px 0 0}
+.steps{margin:14px 0 12px;padding-left:22px;color:var(--dim);font-size:14.5px}
+.steps li{margin:3px 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.row .btn{flex:1 1 auto}
+form .row input{flex:1 1 100%}
+.ws{margin-top:12px;padding:12px;border:1px dashed var(--line2);border-radius:8px}
+.ws p{margin:0 0 8px;color:var(--dim);font-size:14px}
+.spacer{flex:1}
+
+.banner{border:1px solid rgba(255,180,84,.45);background:rgba(255,180,84,.08);border-radius:var(--r);
+  padding:14px 16px;margin-bottom:16px;font-size:15px}
+.banner b{color:var(--warn)}
+.banner.calm{border-color:rgba(47,212,160,.35);background:rgba(47,212,160,.06)}
+.banner.calm b{color:var(--ok)}
+code{font:14px/1.4 var(--mono);background:var(--bg);border:1px solid var(--line2);border-radius:8px;
+  padding:10px 12px;display:block;word-break:break-all;margin-top:8px}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);max-width:min(92vw,560px);
+  background:var(--panel2);border:1px solid var(--line2);border-radius:10px;padding:12px 16px;
+  font-size:15px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:9}
+#toast.show{opacity:1}
+#toast.ok{border-color:var(--ok)} #toast.bad{border-color:var(--bad)}
+[hidden]{display:none!important}
+@media (max-width:420px){ h1{font-size:23px} }
+</style></head>
+<body><main>
+
+<header>
+  <div class="dot" id="dot"></div>
+  <div>
+    <h1>StackyChan accounts</h1>
+    <p class="lede">Sign in to Claude, ChatGPT, or one of the free providers, then pick who your
+      robot talks with. Keys stay on this bridge. They are never sent to the robot and never shown again.</p>
+  </div>
+</header>
+
+<section class="card" id="lockbox" hidden>
+  <h2>Bridge password</h2>
+  <input type="password" id="pw" autocomplete="current-password" placeholder="the bridge's access token">
+  <p class="note">This bridge has an access token set, so changes need it. It's the same token as the
+    robot's <i>Access token</i> field.</p>
+</section>
+
+<section class="card">
+  <h2>Who answers</h2>
+  <div class="choice" id="choice"></div>
+  <label for="model">Model</label>
+  <select id="model" disabled><option>Sign in to pick a model</option></select>
+  <p class="note" id="answer-note">Loading…</p>
+</section>
+
+<div class="banner" id="speech-warn" hidden></div>
+
+<h2 style="margin-top:24px">Paid <small>the big names, billed per use</small></h2>
+<div class="accounts" id="paid"></div>
+
+<h2 style="margin-top:24px">Free <small>no charge, rate-limited or running on your own computer</small></h2>
+<div class="accounts" id="free"></div>
+
+<section class="card" style="margin-top:16px">
+  <h2>Connect the robot</h2>
+  <p class="note" style="margin-top:0">On the robot's own page, open <b>AI backend</b> and set
+    <b>WebSocket URL</b> to:</p>
+  <code id="wsurl">…</code>
+</section>
+
+<div id="toast"></div>
+</main>
+<script>
+var S = null, replacing = {}, wsOpen = {}, pw = "", toastTimer = 0, built = false;
+try { pw = sessionStorage.getItem("stackychan_bridge_pw") || ""; } catch (e) {}
+
+function $(id) { return document.getElementById(id); }
+function acct(p) { return document.querySelector('[data-acct="' + p + '"]'); }
+function el(tag, attrs, text) {
+  var n = document.createElement(tag);
+  Object.keys(attrs || {}).forEach(function (k) { n.setAttribute(k, attrs[k]); });
+  if (text != null) n.textContent = text;
+  return n;
+}
+
+function toast(msg, kind) {
+  var t = $("toast");
+  t.textContent = msg;
+  t.className = "show " + (kind || "");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { t.className = ""; }, kind === "bad" ? 8000 : 3500);
+}
+
+function api(action, body) {
+  var headers = { "Content-Type": "application/json", "X-StackyChan": "1" };
+  if (pw) headers.Authorization = "Bearer " + pw;
+  return fetch("api/accounts/" + action, { method: "POST", headers: headers, body: JSON.stringify(body) })
+    .then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (d) {
+        if (!r.ok) { var e = new Error(d.error || ("The bridge answered " + r.status)); e.needs = d.needs || ""; throw e; }
+        return d;
+      });
+    });
+}
+
+function load() {
+  return fetch("api/accounts", { cache: "no-store" })
+    .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then(render)
+    .catch(function (e) {
+      $("dot").className = "dot down";
+      $("answer-note").textContent = "Can't reach the bridge: " + e.message;
+    });
+}
+
+function day(iso) {
+  var d = new Date(iso);
+  return isNaN(d) ? "" : d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+/* Build one card and one chooser button per provider, once, from what the bridge lists. */
+function build(state) {
+  built = true;
+  state.order.forEach(function (p) {
+    var info = state.providers[p], isUrl = !!info.url_placeholder;
+
+    var btn = el("button", { type: "button", "data-p": p });
+    btn.appendChild(el("b", {}, info.label));
+    btn.appendChild(el("span", {}, "Not signed in"));
+    $("choice").appendChild(btn);
+
+    var card = el("section", { class: "card", "data-acct": p });
+    var head = el("div", { class: "acct-head" });
+    var h3 = el("h3", {}, info.label);
+    if (info.free) h3.appendChild(el("span", { class: "tag" }, "Free"));
+    h3.appendChild(el("small", {}, "by " + info.company));
+    head.appendChild(h3);
+    head.appendChild(el("span", { class: "pill" }, "Not signed in"));
+    card.appendChild(head);
+    if (info.free) card.appendChild(el("p", { class: "free" }, info.free));
+    card.appendChild(el("p", { class: "meta" }));
+
+    var form = el("form");
+    var steps = el("ol", { class: "steps" });
+    var li1 = el("li");
+    var a = el("a", { href: info.keys_url, target: "_blank", rel: "noopener" },
+      info.keys_url.replace(/^https?:\/\//, "").replace(/\/$/, ""));
+    li1.appendChild(a);
+    if (isUrl) {
+      li1.insertBefore(document.createTextNode("Install Ollama from "), a);
+      li1.appendChild(document.createTextNode(" and pull a model"));
+      steps.appendChild(li1);
+      steps.appendChild(el("li", {}, "Paste that computer's address here"));
+    } else {
+      li1.insertBefore(document.createTextNode("Open "), a);
+      steps.appendChild(li1);
+      steps.appendChild(el("li", {}, "Create a key and copy it"));
+      steps.appendChild(el("li", {}, "Paste it here"));
+    }
+    form.appendChild(steps);
+    var row = el("div", { class: "row" });
+    row.appendChild(el("input", isUrl
+      ? { type: "text", autocomplete: "off", spellcheck: "false", autocapitalize: "off",
+          placeholder: info.url_placeholder, "aria-label": info.label + " address" }
+      : { type: "password", autocomplete: "off", spellcheck: "false", autocapitalize: "off",
+          placeholder: (info.key_prefix || "") + "…", "aria-label": info.label + " API key" }));
+    row.appendChild(el("button", { class: "btn pri", type: "submit" }, isUrl ? "Connect" : "Sign in"));
+    row.appendChild(el("button", { class: "btn", type: "button", "data-cancel": "", hidden: "" }, "Cancel"));
+    form.appendChild(row);
+    card.appendChild(form);
+
+    if (p === "anthropic") {
+      var ws = el("div", { class: "ws", "data-ws": "", hidden: "" });
+      ws.appendChild(el("p", {}, "Organisation-level keys need a workspace ID (Settings → Workspaces in the Console, it starts with wrkspc_)."));
+      var wsRow = el("div", { class: "row", style: "margin-top:0" });
+      wsRow.appendChild(el("input", { type: "text", autocomplete: "off", spellcheck: "false",
+        placeholder: "wrkspc_…", "aria-label": "Anthropic workspace ID" }));
+      wsRow.appendChild(el("button", { class: "btn", type: "button", "data-ws-save": "" }, "Save workspace"));
+      ws.appendChild(wsRow);
+      card.appendChild(ws);
+      var toggle = el("p", { class: "fine" });
+      var tb = el("button", { class: "linkish", type: "button", "data-ws-toggle": "" }, "Using an organisation-level key? Add a workspace ID");
+      toggle.appendChild(tb);
+      card.appendChild(toggle);
+    }
+
+    var signed = el("div", { class: "row", "data-signed": "" });
+    signed.appendChild(el("button", { class: "btn", type: "button", "data-replace": "" }, isUrl ? "Use a different address" : "Use a different key"));
+    signed.appendChild(el("button", { class: "btn danger", type: "button", "data-signout": "" }, isUrl ? "Disconnect" : "Sign out"));
+    card.appendChild(signed);
+    card.appendChild(el("div", { class: "spacer" }));
+    if (info.note) card.appendChild(el("p", { class: "fine" }, info.note));
+    $(info.free ? "free" : "paid").appendChild(card);
+
+    wire(card, p, isUrl);
+    btn.onclick = function () {
+      if (btn.disabled || (S && S.active && S.active.provider === p)) return;
+      api("choose", { provider: p })
+        .then(function (d) { render(d); toast(d.providers[p].label + " answers now.", "ok"); })
+        .catch(function (err) { toast(err.message, "bad"); });
+    };
+  });
+}
+
+function render(state) {
+  S = state;
+  if (!built) build(state);
+  $("dot").className = "dot up";
+  $("lockbox").hidden = !S.locked;
+
+  S.order.forEach(function (p) {
+    var info = S.providers[p], card = acct(p), signed = info.signed_in, isUrl = !!info.url_placeholder;
+    var pill = card.querySelector(".pill");
+    pill.textContent = signed ? (isUrl ? "Connected" : "Signed in") : (isUrl ? "Not connected" : "Not signed in");
+    pill.className = "pill" + (signed ? " ok" : "");
+    var meta = "";
+    if (isUrl && signed) meta = "Ollama at " + info.key_hint + (info.source === "env" ? " (set in bridge.env)" : "");
+    else if (info.source === "env") meta = "Key set in bridge.env on the server" + (info.key_hint ? ", ending " + info.key_hint : "") + ".";
+    else if (signed) meta = "Key ending " + info.key_hint + (info.since ? " · signed in " + day(info.since) : "");
+    if (p === "anthropic" && info.workspace) meta += (meta ? " · " : "") + "workspace " + info.workspace.slice(0, 14) + "…";
+    card.querySelector(".meta").textContent = meta;
+    card.querySelector(".meta").hidden = !meta;
+
+    var showForm = !signed || !!replacing[p];
+    card.querySelector("form").hidden = !showForm;
+    card.querySelector("[data-cancel]").hidden = !(signed && replacing[p]);
+    card.querySelector("[data-signed]").hidden = showForm;
+    var out = card.querySelector("[data-signout]");
+    out.disabled = info.source === "env";
+    out.title = info.source === "env" ? "Remove it from bridge.env on the server to sign out" : "";
+    if (p === "anthropic") {
+      card.querySelector("[data-ws]").hidden = !wsOpen[p];
+      card.querySelector("[data-ws-toggle]").parentNode.hidden = !!wsOpen[p];
+    }
+
+    var btn = document.querySelector('#choice [data-p="' + p + '"]');
+    var active = S.active && S.active.provider === p;
+    btn.disabled = !signed;
+    btn.className = active ? "on" : "";
+    btn.setAttribute("aria-pressed", active ? "true" : "false");
+    btn.querySelector("span").textContent = active ? "Answering now" : (signed ? "Tap to use" : (info.free ? "Free · sign in below" : "Sign in below"));
+  });
+
+  var sel = $("model");
+  sel.innerHTML = "";
+  if (S.active) {
+    var models = S.providers[S.active.provider].models.slice(), found = false;
+    models.forEach(function (m) { if (m.id === S.active.model) found = true; });
+    if (!found && S.active.model) models.unshift({ id: S.active.model, name: S.active.model });
+    models.forEach(function (m) {
+      var o = document.createElement("option");
+      o.value = m.id;
+      o.textContent = m.name + (m.reasoning ? " · thinks first, slower" : "");
+      o.title = m.id;
+      o.selected = m.id === S.active.model;
+      sel.appendChild(o);
+    });
+    sel.disabled = false;
+  } else {
+    var o = document.createElement("option");
+    o.textContent = "Sign in to pick a model";
+    sel.appendChild(o);
+    sel.disabled = true;
+  }
+
+  var note;
+  if (!S.active) {
+    note = "Sign in to any provider below. The first one you sign in to answers automatically. " +
+      "The robot's hearing and voice come from ChatGPT or Groq, whoever answers.";
+  } else {
+    note = S.providers[S.active.provider].label + " answers from the next thing you say. Smaller models reply faster, which helps when talking.";
+    var robot = S.robot;
+    if (robot && robot.provider && robot.provider !== S.active.provider) {
+      var rp = S.providers[robot.provider];
+      note += " Your robot's own AI page asks for " + (rp ? rp.label : robot.provider) + "; this choice overrides it.";
+    }
+  }
+  $("answer-note").textContent = note;
+
+  var warn = $("speech-warn"), sp = S.speech || {};
+  warn.innerHTML = "";
+  if (S.active && !S.speech_ready) {
+    warn.className = "banner";
+    warn.appendChild(el("b", {}, "Your robot can't hear or speak yet. "));
+    warn.appendChild(document.createTextNode("Listening and the voice are separate from who answers, and only ChatGPT (paid) or Groq (free) provide them. Sign in to one of those too, even if someone else answers."));
+    warn.hidden = false;
+  } else if (S.active && sp.asr === "groq" && sp.tts === "groq") {
+    warn.className = "banner calm";
+    warn.appendChild(el("b", {}, "Hearing and voice come from Groq, free. "));
+    warn.appendChild(document.createTextNode("The voice uses Groq's PlayAI model; if the robot goes quiet, accept the PlayAI terms once at console.groq.com. Sign in to ChatGPT to use OpenAI's voices instead."));
+    warn.hidden = false;
+  } else {
+    warn.hidden = true;
+  }
+  $("wsurl").textContent = (location.protocol === "https:" ? "wss://" : "ws://") + location.host + (S.ws_path || "/xiaozhi/v1/");
+}
+
+function wire(card, p, isUrl) {
+  var form = card.querySelector("form"), input = form.querySelector("input");
+  var submit = form.querySelector('button[type="submit"]'), out = card.querySelector("[data-signout]");
+  var armTimer = 0, idle = submit.textContent;
+
+  form.onsubmit = function (e) {
+    e.preventDefault();
+    if (!input.value.trim()) { toast(isUrl ? "Enter the address first." : "Paste your key first.", "bad"); input.focus(); return; }
+    var label = S ? S.providers[p].company : "the provider";
+    submit.disabled = true;
+    submit.textContent = "Checking with " + label + "…";
+    var body = { provider: p, key: input.value };
+    if (p === "anthropic") {
+      var wsIn = card.querySelector("[data-ws] input");
+      if (wsIn && wsIn.value.trim()) body.workspace = wsIn.value;
+    }
+    api("signin", body)
+      .then(function (d) {
+        input.value = "";
+        replacing[p] = false;
+        wsOpen[p] = false;
+        render(d);
+        toast((isUrl ? "Connected to " : "Signed in to ") + d.providers[p].label + "." + (d.note ? " " + d.note : ""), "ok");
+      })
+      .catch(function (err) {
+        if (err.needs === "workspace") { wsOpen[p] = true; render(S); card.querySelector("[data-ws] input").focus(); }
+        toast(err.message, "bad");
+      })
+      .then(function () { submit.disabled = false; submit.textContent = idle; });
+  };
+
+  if (p === "anthropic") {
+    card.querySelector("[data-ws-toggle]").onclick = function () { wsOpen[p] = true; render(S); card.querySelector("[data-ws] input").focus(); };
+    card.querySelector("[data-ws-save]").onclick = function () {
+      var wsIn = card.querySelector("[data-ws] input"), b = card.querySelector("[data-ws-save]");
+      if (!wsIn.value.trim()) { toast("Paste the workspace ID first.", "bad"); wsIn.focus(); return; }
+      if (input.value.trim()) { form.requestSubmit ? form.requestSubmit() : form.onsubmit(new Event("submit")); return; }
+      b.disabled = true;
+      api("workspace", { workspace: wsIn.value })
+        .then(function (d) { wsIn.value = ""; wsOpen[p] = false; render(d); toast("Workspace saved. Claude is ready." + (d.note ? " " + d.note : ""), "ok"); })
+        .catch(function (err) { toast(err.message, "bad"); })
+        .then(function () { b.disabled = false; });
+    };
+  }
+
+  card.querySelector("[data-replace]").onclick = function () {
+    replacing[p] = true; render(S); input.focus();
+  };
+  card.querySelector("[data-cancel]").onclick = function () {
+    replacing[p] = false; input.value = ""; render(S);
+  };
+
+  out.onclick = function () {
+    var word = isUrl ? "disconnect" : "sign out";
+    if (!out.classList.contains("arm")) {
+      out.classList.add("arm");
+      out.textContent = "Tap again to " + word;
+      armTimer = setTimeout(function () { out.classList.remove("arm"); out.textContent = isUrl ? "Disconnect" : "Sign out"; }, 4000);
+      return;
+    }
+    clearTimeout(armTimer);
+    out.classList.remove("arm");
+    out.textContent = isUrl ? "Disconnect" : "Sign out";
+    out.disabled = true;
+    api("signout", { provider: p })
+      .then(function (d) {
+        render(d);
+        var msg = (isUrl ? "Disconnected from " : "Signed out of ") + d.providers[p].label + ".";
+        if (d.active) msg += " " + d.providers[d.active.provider].label + " answers now.";
+        toast(msg, "ok");
+      })
+      .catch(function (err) { out.disabled = false; toast(err.message, "bad"); });
+  };
+}
+
+$("model").onchange = function () {
+  if (!S || !S.active) return;
+  var model = $("model").value;
+  api("choose", { provider: S.active.provider, model: model })
+    .then(function (d) { render(d); toast("Model set to " + model + ".", "ok"); })
+    .catch(function (err) { toast(err.message, "bad"); render(S); });
+};
+
+$("pw").value = pw;
+$("pw").oninput = function () {
+  pw = $("pw").value.trim();
+  try { sessionStorage.setItem("stackychan_bridge_pw", pw); } catch (e) {}
+};
+
+window.addEventListener("focus", load);
+load();
+</script>
+</body></html>

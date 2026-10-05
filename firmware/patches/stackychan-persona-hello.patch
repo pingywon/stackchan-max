@@ -1,0 +1,90 @@
+diff --git a/main/protocols/websocket_protocol.cc b/main/protocols/websocket_protocol.cc
+index f0cc034..d1393be 100644
+--- a/main/protocols/websocket_protocol.cc
++++ b/main/protocols/websocket_protocol.cc
+@@ -218,6 +218,85 @@ std::string WebsocketProtocol::GetHelloMessage() {
+     cJSON_AddNumberToObject(audio_params, "channels", 1);
+     cJSON_AddNumberToObject(audio_params, "frame_duration", OPUS_FRAME_DURATION_MS);
+     cJSON_AddItemToObject(root, "audio_params", audio_params);
++
++    // StackyChan fork: tell the backend which character it is voicing, and hand over
++    // whatever else the portal has stored that the backend might want (a KIE.ai model
++    // preference, short-term memory notes).
++    //
++    // The device is a thin audio client — all of the language work happens server side —
++    // so the only way a persona, model choice, or these other preferences can take effect
++    // is if the device says what it wants. These fields are additive and a stock xiaozhi
++    // server ignores anything it does not recognise, so this stays compatible both ways.
++    {
++        Settings sc("stackychan", false);
++        std::string persona_id   = sc.GetString("persona_id", "");
++        std::string provider     = sc.GetString("ai_provider", "");
++        std::string model        = sc.GetString("ai_model", "");
++        std::string personas     = sc.GetString("personas", "");
++        std::string kie_model    = sc.GetString("kie_model", "");
++        std::string memory_notes = sc.GetString("memory_notes", "");
++        std::string weather_loc  = sc.GetString("weather_loc", "");
++        int history_turns        = sc.GetInt("history_turns", 0);
++
++        if (!kie_model.empty()) {
++            cJSON_AddStringToObject(root, "kie_model", kie_model.c_str());
++        }
++        if (!memory_notes.empty()) {
++            cJSON_AddStringToObject(root, "memory_notes", memory_notes.c_str());
++        }
++        if (!weather_loc.empty()) {
++            cJSON_AddStringToObject(root, "weather_location", weather_loc.c_str());
++        }
++        // 0 means "portal has never set this" -- let the bridge use its own
++        // BRIDGE_HISTORY_TURNS default rather than forcing a value onto it.
++        if (history_turns > 0) {
++            cJSON_AddNumberToObject(root, "history_turns", history_turns);
++        }
++
++        if (!provider.empty() || !model.empty()) {
++            cJSON* llm = cJSON_CreateObject();
++            if (!provider.empty()) {
++                cJSON_AddStringToObject(llm, "provider", provider.c_str());
++            }
++            if (!model.empty()) {
++                cJSON_AddStringToObject(llm, "model", model.c_str());
++            }
++            cJSON_AddItemToObject(root, "llm", llm);
++        }
++
++        if (!persona_id.empty()) {
++            cJSON_AddStringToObject(root, "persona_id", persona_id.c_str());
++
++            // Send the prompt itself too, so a backend that keeps no per-device state
++            // still gets the character. Looked up here rather than stored twice.
++            cJSON* list = cJSON_Parse(personas.c_str());
++            if (cJSON_IsArray(list)) {
++                cJSON* item = nullptr;
++                cJSON_ArrayForEach(item, list) {
++                    cJSON* id = cJSON_GetObjectItem(item, "id");
++                    if (!cJSON_IsString(id) || persona_id != id->valuestring) {
++                        continue;
++                    }
++                    cJSON* p = cJSON_CreateObject();
++                    for (const char* key : {"id", "name", "prompt", "voice"}) {
++                        cJSON* v = cJSON_GetObjectItem(item, key);
++                        if (cJSON_IsString(v)) {
++                            cJSON_AddStringToObject(p, key, v->valuestring);
++                        }
++                    }
++                    // Numeric, so it needs its own check rather than the string loop above.
++                    cJSON* speed = cJSON_GetObjectItem(item, "speed");
++                    if (cJSON_IsNumber(speed)) {
++                        cJSON_AddNumberToObject(p, "speed", speed->valuedouble);
++                    }
++                    cJSON_AddItemToObject(root, "persona", p);
++                    break;
++                }
++            }
++            cJSON_Delete(list);
++        }
++    }
++
+     auto json_str = cJSON_PrintUnformatted(root);
+     std::string message(json_str);
+     cJSON_free(json_str);

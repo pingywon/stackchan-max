@@ -1,0 +1,49 @@
+diff --git a/main/ota.cc b/main/ota.cc
+index bcc0dc5..e8a7fd3 100644
+--- a/main/ota.cc
++++ b/main/ota.cc
+@@ -143,9 +143,30 @@ esp_err_t Ota::CheckVersion() {
+         }
+     }
+ 
++    // StackyChan fork: don't let the stock OTA response overwrite a custom bridge.
++    //
++    // This merge is upstream behaviour: whatever the OTA endpoint returns gets written
++    // straight into NVS, every boot, unconditionally. That's fine for a stock device
++    // being told where to connect for the first time, but once the owner has pointed the
++    // portal at their own bridge, the exact same code path would silently replace that
++    // URL/token with whatever https://api.tenclass.net (or wherever CONFIG_OTA_URL points)
++    // happens to return. `custom_backend` is set by the portal's AI section whenever a
++    // non-empty URL is saved there — see portal_config.cpp's ai_save().
++    //
++    // Skipping the merge is not enough on its own: InitializeProtocol() (application.cc)
++    // picks MqttProtocol vs WebsocketProtocol purely from has_mqtt_config_/
++    // has_websocket_config_ being set THIS boot, with MQTT as the fallback when neither
++    // is — so without an explicit signal here, a custom (always-websocket) bridge would
++    // fall through to MQTT and fail to connect at all. Setting has_websocket_config_
++    // directly, without touching NVS, gets the protocol choice right while still
++    // skipping the overwrite.
++    bool has_custom_backend = Settings("stackychan", false).GetInt("custom_backend", 0) != 0;
++
+     has_mqtt_config_ = false;
+     cJSON *mqtt = cJSON_GetObjectItem(root, "mqtt");
+-    if (cJSON_IsObject(mqtt)) {
++    if (has_custom_backend) {
++        ESP_LOGI(TAG, "custom backend configured - not merging OTA response's mqtt section");
++    } else if (cJSON_IsObject(mqtt)) {
+         Settings settings("mqtt", true);
+         cJSON *item = NULL;
+         cJSON_ArrayForEach(item, mqtt) {
+@@ -166,7 +187,11 @@ esp_err_t Ota::CheckVersion() {
+ 
+     has_websocket_config_ = false;
+     cJSON *websocket = cJSON_GetObjectItem(root, "websocket");
+-    if (cJSON_IsObject(websocket)) {
++    if (has_custom_backend) {
++        ESP_LOGI(TAG, "custom backend configured - not merging OTA response's websocket section");
++        // Not merged, but still the protocol this boot must use — see the comment above.
++        has_websocket_config_ = true;
++    } else if (cJSON_IsObject(websocket)) {
+         Settings settings("websocket", true);
+         cJSON *item = NULL;
+         cJSON_ArrayForEach(item, websocket) {

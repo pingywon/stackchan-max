@@ -1,0 +1,111 @@
+diff --git a/main/audio/wake_words/afe_wake_word.cc b/main/audio/wake_words/afe_wake_word.cc
+index 8fc5fef..f7c4f5f 100644
+--- a/main/audio/wake_words/afe_wake_word.cc
++++ b/main/audio/wake_words/afe_wake_word.cc
+@@ -2,6 +2,9 @@
+ #include "audio_service.h"
+ #include <esp_log.h>
+ #include <sstream>
++#include <cstring>
++#include <string>
++#include <settings.h>
+
+ #define DETECTION_RUNNING_EVENT 1
+
+@@ -49,17 +52,50 @@ bool AfeWakeWord::Initialize(AudioCodec* codec, srmodel_list_t* models_list) {
+         ESP_LOGE(TAG, "Failed to initialize wakenet model");
+         return false;
+     }
++    // StackyChan fork: let the web portal pin which wake word is live.
++    //
++    // Several wakenet models are packed into the assets partition. Upstream walks the
++    // whole list and keeps whichever wn model it saw last, so the wake phrase is decided
++    // by packing order rather than by anyone's choice. We look for the model named in
++    // NVS first; an empty setting reproduces the old first-match behaviour.
++    std::string preferred;
++    {
++        Settings settings("stackychan", false);
++        preferred = settings.GetString("wake_model", "");
++    }
++
++    char* first_wn = NULL;
+     for (int i = 0; i < models_->num; i++) {
+         ESP_LOGI(TAG, "Model %d: %s", i, models_->model_name[i]);
+-        if (strstr(models_->model_name[i], ESP_WN_PREFIX) != NULL) {
+-            wakenet_model_ = models_->model_name[i];
+-            auto words = esp_srmodel_get_wake_words(models_, wakenet_model_);
+-            // split by ";" to get all wake words
+-            std::stringstream ss(words);
+-            std::string word;
+-            while (std::getline(ss, word, ';')) {
+-                wake_words_.push_back(word);
+-            }
++        if (strstr(models_->model_name[i], ESP_WN_PREFIX) == NULL) {
++            continue;
++        }
++        if (first_wn == NULL) {
++            first_wn = models_->model_name[i];
++        }
++        if (!preferred.empty() && strstr(models_->model_name[i], preferred.c_str()) == NULL) {
++            continue;
++        }
++        wakenet_model_ = models_->model_name[i];
++        break;
++    }
++
++    if (wakenet_model_ == NULL) {
++        if (!preferred.empty()) {
++            ESP_LOGW(TAG, "wake word model '%s' is not in this build, using the first available",
++                     preferred.c_str());
++        }
++        wakenet_model_ = first_wn;
++    }
++
++    if (wakenet_model_ != NULL) {
++        ESP_LOGI(TAG, "Wake word model selected: %s", wakenet_model_);
++        auto words = esp_srmodel_get_wake_words(models_, wakenet_model_);
++        // split by ";" to get all wake words
++        std::stringstream ss(words);
++        std::string word;
++        while (std::getline(ss, word, ';')) {
++            wake_words_.push_back(word);
+         }
+     }
+
+@@ -71,6 +107,20 @@ bool AfeWakeWord::Initialize(AudioCodec* codec, srmodel_list_t* models_list) {
+         input_format.push_back('R');
+     }
+     afe_config_t* afe_config = afe_config_init(input_format.c_str(), models_, AFE_TYPE_SR, AFE_MODE_HIGH_PERF);
++    // afe_config_init picks its own wakenet from the list; point it at the one we chose.
++    // The name is owned by models_, which outlives the AFE instance.
++    //
++    // It also auto-fills wakenet_model_name_2 with a second model it found, which runs a
++    // second WakeNet detector concurrently with the one we actually want -- roughly
++    // doubling the AFE pipeline's real-time DSP/memory cost for a phrase nobody selected.
++    // On real hardware with all eleven models packed this left "Second WakeNet Model:
++    // wn9_computer_tts" running alongside our pick and the wake-word detection task never
++    // kept up with the feed ring buffer (AFE(FEED) is full, over and over, forever). We
++    // only ever want the single model the portal/NVS selected.
++    if (wakenet_model_ != NULL) {
++        afe_config->wakenet_model_name = wakenet_model_;
++        afe_config->wakenet_model_name_2 = NULL;
++    }
+     afe_config->aec_init = codec_->input_reference();
+     afe_config->aec_mode = AEC_MODE_SR_HIGH_PERF;
+     afe_config->afe_perferred_core = 1;
+@@ -151,7 +201,14 @@ void AfeWakeWord::AudioDetectionTask() {
+
+         if (res->wakeup_state == WAKENET_DETECTED) {
+             Stop();
+-            last_detected_wake_word_ = wake_words_[res->wakenet_model_index - 1];
++            // Guard the index: with a pinned model the list holds only that model's
++            // phrases, and a stale or out-of-range index would read past the end.
++            int word_index = res->wakenet_model_index - 1;
++            if (word_index >= 0 && word_index < (int)wake_words_.size()) {
++                last_detected_wake_word_ = wake_words_[word_index];
++            } else if (!wake_words_.empty()) {
++                last_detected_wake_word_ = wake_words_[0];
++            }
+
+             if (wake_word_detected_callback_) {
+                 wake_word_detected_callback_(last_detected_wake_word_);

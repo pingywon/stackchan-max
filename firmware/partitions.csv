@@ -1,0 +1,24 @@
+# ESP-IDF Partition Table
+# Name,   Type, SubType, Offset,  Size, Flags
+#
+# The assets partition grew from 4M to 0x5B0000 (5.69 MB) to make room for the English
+# MultiNet model, which used to let a wake word be typed in rather than picked from a
+# list of pre-trained ones. That engine was retired in v1.6.0 to free the flash it cost;
+# the same headroom now goes to a trained-phrase (WakeNet) list grown from four phrases
+# to eleven instead. The two OTA slots and everything before them are untouched, so this
+# only consumes flash that was previously unused tail.
+#
+#   assets    0xA00000 .. 0xFB0000
+#   coredump  0xFB0000 .. 0xFC0000
+#   flash end 0x1000000            -> 256 KB still spare
+#
+# CHANGING THIS FILE REQUIRES A FULL USB FLASH. An OTA update rewrites an app slot only;
+# it cannot move a partition boundary, so a device updated over the air would keep the old
+# 4 MB table and the new assets image would not fit.
+nvs,      data, nvs,     0x9000,    0x4000,
+otadata,  data, ota,     0xd000,    0x2000,
+phy_init, data, phy,     0xf000,    0x1000,
+ota_0,    app,  ota_0,   0x20000,   0x4f0000,
+ota_1,    app,  ota_1,   ,          0x4f0000,
+assets,   data, spiffs,  0xA00000,  0x5B0000,
+coredump, data, coredump,,          0x10000,

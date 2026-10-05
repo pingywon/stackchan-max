@@ -1,0 +1,8 @@
+# The WebSocket server and every outbound HTTP call.
+aiohttp>=3.9
+
+# Opus codec. This is a ctypes binding, so the system libopus must also be present:
+#   Debian/Ubuntu   apt install libopus0
+#   macOS           brew install opus
+# Without it the bridge still starts and logs the problem, but no audio moves.
+opuslib>=3.0.1
