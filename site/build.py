@@ -70,9 +70,8 @@ def main() -> int:
     os.makedirs(os.path.join(OUT, "img"))
     open(os.path.join(OUT, "index.html"), "w", encoding="utf-8").write(page)
     open(os.path.join(OUT, ".nojekyll"), "w").close()
-    shutil.copy(os.path.join(HERE, "VERSION"), os.path.join(OUT, "VERSION"))
-    if os.path.exists(os.path.join(HERE, "og.png")):
-        shutil.copy(os.path.join(HERE, "og.png"), os.path.join(OUT, "og.png"))
+    for static in ("VERSION", "og.png", "favicon.png", "favicon.ico", "apple-touch-icon.png"):
+        shutil.copy(os.path.join(HERE, static), os.path.join(OUT, static))
 
     pictures = sorted(set(re.findall(r'(?:img/|data-img=")([\w.-]+\.(?:png|gif))', page)))
     for picture in pictures:
