@@ -3,5 +3,6 @@
 __pycache__/
 .venv/
 /release/
+/site/out/
 /workshop/kit/tools/
 /workshop/kit/stock/
