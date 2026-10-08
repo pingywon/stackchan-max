@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StackChan MAX: a desk robot with a face you can swap</title>
+<meta name="description" content="Custom firmware for the M5Stack StackChan desk robot. Swappable faces, a control panel it serves itself, and any AI you choose: Claude, ChatGPT or a free one.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="StackChan MAX">
+<meta property="og:description" content="A desk robot with a face you can swap and a brain you choose.">
+<meta property="og:image" content="{{SITE_URL}}og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#080a1e">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">
+<style>
+/* Colours are sampled from MAX's own artwork (workshop/design/max_backplate.png). */
+:root {
+  --sky: #080a1e;
+  --sky-deep: #04061a;
+  --suit: #1e2446;
+  --suit-line: #2c3463;
+  --line: #a72487;
+  --line-dim: #50164e;
+  --grid: #0a84c4;
+  --grid-hi: #57c7f7;
+  --gold: #f0b23e;
+  --gold-deep: #d69632;
+  --tie: #dc3c3c;
+  --shirt: #e1e4f0;
+  --mute: #a3a9c9;
+  --plastic: #eceef5;
+  --plastic-shade: #cdd1df;
+  --wide: "wdth" 125;
+  --page: 1120px;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--sky);
+  color: var(--shirt);
+  font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+  font-size: 1.125rem;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+img { max-width: 100%; height: auto; display: block; }
+a { color: var(--grid-hi); text-underline-offset: 0.18em; }
+a:hover { color: var(--shirt); }
+:focus-visible { outline: 3px solid var(--grid-hi); outline-offset: 3px; border-radius: 4px; }
+code, pre { font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace; }
+code { font-size: 0.9em; }
+
+.wrap { max-width: var(--page); margin: 0 auto; padding: 0 24px; }
+h1, h2, h3 { font-variation-settings: var(--wide); line-height: 1.02; margin: 0; }
+h2 { font-size: clamp(2rem, 4.6vw, 3.25rem); font-weight: 800; letter-spacing: -0.015em; max-width: 18ch; }
+h3 { font-size: 1.0625rem; font-weight: 700; line-height: 1.25; }
+p { margin: 0; }
+.lede { color: var(--mute); max-width: 54ch; margin-top: 18px; }
+
+/* ---------- hero: MAX's backdrop, extended to the whole screen ---------- */
+.hero { position: relative; overflow: hidden; isolation: isolate; min-height: min(100svh, 940px); display: flex; flex-direction: column; }
+.sky i { position: absolute; left: 0; right: 0; height: 2px; background: var(--line); box-shadow: 0 -1px 0 var(--line-dim), 0 1px 0 var(--line-dim); z-index: -2; }
+.sky i:nth-child(1) { top: 4%; }
+.sky i:nth-child(2) { top: 15%; }
+.sky i:nth-child(3) { top: 29%; }
+.sky i:nth-child(4) { top: 46%; }
+.floor { position: absolute; left: 0; right: 0; bottom: 0; height: 36%; z-index: -2; overflow: hidden; border-top: 2px solid var(--grid); background: var(--sky-deep); }
+.floor svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.floor line { stroke: var(--grid); stroke-width: 2; opacity: 0.6; vector-effect: non-scaling-stroke; }
+.floor::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(4,6,26,0) 0%, rgba(4,6,26,.15) 55%, var(--sky) 100%); }
+
+.hero > .wrap { position: relative; z-index: 1; width: 100%; }
+.bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 22px; padding-bottom: 22px; }
+.brand { font-variation-settings: var(--wide); font-weight: 800; font-size: 1.0625rem; letter-spacing: 0.01em; color: var(--shirt); text-decoration: none; }
+.bar nav { display: flex; gap: 22px; font-size: 1rem; }
+.bar nav a { color: var(--shirt); text-decoration: none; }
+.bar nav a:hover { color: var(--gold); }
+
+.hero-grid { flex: 1; display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr); gap: 32px; align-items: center; padding-top: 12px; padding-bottom: 40px; }
+h1 { font-size: clamp(3.1rem, 9.2vw, 7.4rem); font-weight: 900; letter-spacing: -0.03em; line-height: 0.9; color: var(--gold); }
+h1 .st { color: #cf3dab; }
+h1 .rest { display: block; }
+.hero .lede { font-size: 1.25rem; color: var(--shirt); max-width: 34ch; margin-top: 26px; }
+.cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+.btn { display: inline-block; padding: 14px 22px; border-radius: 10px; font-weight: 700; font-size: 1.0625rem; text-decoration: none; border: 2px solid transparent; cursor: pointer; font-family: inherit; }
+.btn-main { background: var(--gold); color: #1a1205; }
+.btn-main:hover { background: #ffd071; color: #1a1205; }
+.btn-quiet { border-color: var(--shirt); color: var(--shirt); background: rgba(8,10,30,.6); }
+.btn-quiet:hover { border-color: var(--gold); color: var(--gold); }
+
+/* the stutter: one moment, on load */
+@media (prefers-reduced-motion: no-preference) {
+  h1 .st, h1 .rest { opacity: 0; animation: say 0.01s steps(1) forwards; }
+  h1 .st:nth-child(1) { animation-delay: 0.25s; }
+  h1 .st:nth-child(2) { animation-delay: 0.55s; }
+  h1 .rest { animation-delay: 0.95s; }
+  @keyframes say { to { opacity: 1; } }
+}
+
+/* ---------- the robot ---------- */
+.stage { display: flex; flex-direction: column; align-items: center; }
+.bot { margin: 0; width: min(430px, 82vw); display: flex; flex-direction: column; align-items: center; --led-l: var(--line); --led-r: var(--grid-hi); }
+.bot[data-face="volt"] { --led-l: #19e6c4; --led-r: #ff4fb4; }
+.bot[data-face="default"] { --led-l: #ffffff; --led-r: #ffffff; }
+.bot-head { width: 100%; background: linear-gradient(180deg, #f7f8fc, var(--plastic) 40%, var(--plastic-shade)); border-radius: 30px; padding: 26px 26px 34px; box-shadow: 0 2px 0 #fff inset, 0 -6px 0 rgba(0,0,0,.08) inset, 0 26px 50px rgba(0,0,0,.55); transition: transform 0.25s ease-out; will-change: transform; }
+.bot-bezel { background: #05060d; border-radius: 12px; padding: 12px; }
+.bot-bezel img { width: 100%; aspect-ratio: 4 / 3; image-rendering: pixelated; border-radius: 3px; background: var(--sky); }
+.bot-neck { width: 26%; height: 22px; background: linear-gradient(180deg, #b9bdcc, var(--plastic-shade)); }
+.bot-body { width: 64%; height: 86px; background: linear-gradient(180deg, var(--plastic), var(--plastic-shade)); border-radius: 16px 16px 26px 26px; display: flex; justify-content: space-between; align-items: center; padding: 0 20px; box-shadow: 0 -5px 0 rgba(0,0,0,.08) inset; }
+.leds { display: grid; grid-template-columns: repeat(3, 9px); gap: 6px; }
+.leds b { width: 9px; height: 9px; border-radius: 50%; background: var(--led-l); box-shadow: 0 0 10px var(--led-l); transition: background 0.2s, box-shadow 0.2s; }
+.leds.r b { background: var(--led-r); box-shadow: 0 0 10px var(--led-r); }
+.bot-shadow { width: 78%; height: 22px; margin-top: 6px; background: radial-gradient(closest-side, rgba(0,0,0,.6), rgba(0,0,0,0)); }
+
+.faces { margin-top: 10px; text-align: center; }
+.faces p { font-size: 1rem; color: var(--shirt); margin-bottom: 10px; }
+.seg { display: inline-flex; background: rgba(8,10,30,.8); border: 2px solid var(--suit-line); border-radius: 12px; padding: 4px; gap: 4px; }
+.seg button { font: inherit; font-weight: 700; font-size: 1rem; color: var(--shirt); background: none; border: 0; padding: 9px 18px; border-radius: 8px; cursor: pointer; }
+.seg button:hover { background: var(--suit); }
+.seg button[aria-pressed="true"] { background: var(--shirt); color: var(--sky); }
+
+/* ---------- sections ---------- */
+section { padding: 104px 0; }
+.band { background: var(--suit); }
+
+.can { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 40px; margin: 44px 0 0; padding: 0; list-style: none; }
+.can li { padding: 20px 0 22px; border-top: 2px solid var(--suit-line); }
+.can p { color: var(--mute); font-size: 1.0625rem; margin-top: 6px; }
+
+.moods { margin-top: 64px; }
+.moods img { width: 100%; border-radius: 10px; border: 2px solid var(--suit-line); image-rendering: pixelated; }
+.cap { color: var(--mute); font-size: 1rem; margin-top: 12px; max-width: 70ch; }
+
+.split { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 56px; align-items: center; }
+.shot { display: block; border-radius: 12px; border: 2px solid var(--suit-line); background: #0b0d14; overflow: hidden; }
+.band .shot { border-color: #3a4380; }
+.who { margin: 30px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 10px 22px; }
+.who dt { font-weight: 700; color: var(--gold); }
+.who dd { margin: 0; }
+.fine { color: var(--mute); font-size: 1rem; margin-top: 26px; max-width: 46ch; }
+
+.panel-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 24px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 36px 0 16px; }
+.tabs button { font: inherit; font-weight: 600; font-size: 1rem; color: var(--shirt); background: none; border: 2px solid var(--suit-line); border-radius: 999px; padding: 8px 18px; cursor: pointer; }
+.tabs button:hover { border-color: var(--shirt); }
+.tabs button[aria-selected="true"] { background: var(--shirt); border-color: var(--shirt); color: var(--sky); }
+.panel-view { display: grid; grid-template-columns: minmax(0, 1fr) 232px; gap: 28px; align-items: start; }
+.panel-view .shot img { width: 100%; aspect-ratio: 23 / 16; object-fit: cover; object-position: top left; }
+.phone { border: 8px solid #05060d; border-radius: 30px; overflow: hidden; background: #0b0d14; box-shadow: 0 0 0 2px var(--suit-line); }
+.phone img { width: 100%; aspect-ratio: 9 / 18.5; object-fit: cover; object-position: top; }
+
+.steps { counter-reset: step; list-style: none; margin: 48px 0 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 28px; }
+.steps li { counter-increment: step; border-top: 2px solid #3a4380; padding-top: 16px; }
+.steps li::before { content: counter(step); display: block; font-variation-settings: var(--wide); font-weight: 900; font-size: 2.6rem; line-height: 1; color: var(--gold); margin-bottom: 14px; }
+.steps p { color: #c3c8e2; font-size: 1.0625rem; margin-top: 6px; }
+.after { margin-top: 44px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; color: #c3c8e2; }
+.after strong { color: var(--shirt); }
+
+.try { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; margin-top: 40px; }
+.cmd { border: 2px solid var(--suit-line); border-radius: 12px; overflow: hidden; background: var(--sky-deep); display: flex; flex-direction: column; }
+.cmd header { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px 12px 18px; }
+.cmd pre { margin: 0; padding: 4px 18px 18px; overflow-x: auto; font-size: 0.9375rem; line-height: 1.6; color: var(--shirt); }
+.cmd .note { color: var(--mute); font-size: 1rem; padding: 0 18px 18px; margin-top: auto; }
+.copy { font: inherit; font-size: 0.9375rem; font-weight: 600; color: var(--shirt); background: var(--suit); border: 0; border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+.copy:hover { background: var(--suit-line); }
+
+.status { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px; margin-top: 40px; }
+.status h3 { padding-top: 14px; border-top: 4px solid var(--grid); }
+.status .maybe h3 { border-color: var(--gold); }
+.status .no h3 { border-color: var(--tie); }
+.status ul { margin: 12px 0 0; padding-left: 1.1em; color: var(--mute); font-size: 1.0625rem; }
+.status li { margin-top: 6px; }
+
+footer { border-top: 2px solid var(--suit-line); padding: 44px 0 56px; color: var(--mute); font-size: 1rem; }
+.foot { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 40px; }
+.foot p + p { margin-top: 12px; }
+.ver { text-align: right; }
+.ver strong { color: var(--shirt); font-weight: 600; }
+
+@media (max-width: 900px) {
+  section { padding: 72px 0; }
+  .hero { min-height: 0; }
+  .hero-grid { grid-template-columns: 1fr; gap: 36px; padding-top: 28px; padding-bottom: 32px; }
+  .bar nav a.opt { display: none; }
+  .can { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .split { grid-template-columns: 1fr; gap: 36px; }
+  .panel-view { grid-template-columns: 1fr; }
+  .phone { display: none; }
+  .steps { grid-template-columns: 1fr; gap: 0; }
+  .steps li { display: grid; grid-template-columns: 56px 1fr; column-gap: 8px; padding: 18px 0; }
+  .steps li::before { grid-row: span 2; margin: 0; }
+  .after, .try, .status, .foot { grid-template-columns: 1fr; gap: 28px; }
+  .ver { text-align: left; }
+}
+@media (max-width: 560px) {
+  body { font-size: 1.0625rem; }
+  .wrap { padding: 0 16px; }
+  .can { grid-template-columns: 1fr; }
+  .bar nav { gap: 16px; }
+  .seg button { padding: 9px 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .bot-head { transition: none; }
+}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="sky" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+  <div class="floor" aria-hidden="true"><svg viewBox="0 0 1440 340" preserveAspectRatio="xMidYMin slice" focusable="false"><line x1="-316" y1="0" x2="-5860" y2="340"/><line x1="-242" y1="0" x2="-5390" y2="340"/><line x1="-168" y1="0" x2="-4920" y2="340"/><line x1="-94" y1="0" x2="-4450" y2="340"/><line x1="-20" y1="0" x2="-3980" y2="340"/><line x1="54" y1="0" x2="-3510" y2="340"/><line x1="128" y1="0" x2="-3040" y2="340"/><line x1="202" y1="0" x2="-2570" y2="340"/><line x1="276" y1="0" x2="-2100" y2="340"/><line x1="350" y1="0" x2="-1630" y2="340"/><line x1="424" y1="0" x2="-1160" y2="340"/><line x1="498" y1="0" x2="-690" y2="340"/><line x1="572" y1="0" x2="-220" y2="340"/><line x1="646" y1="0" x2="250" y2="340"/><line x1="720" y1="0" x2="720" y2="340"/><line x1="794" y1="0" x2="1190" y2="340"/><line x1="868" y1="0" x2="1660" y2="340"/><line x1="942" y1="0" x2="2130" y2="340"/><line x1="1016" y1="0" x2="2600" y2="340"/><line x1="1090" y1="0" x2="3070" y2="340"/><line x1="1164" y1="0" x2="3540" y2="340"/><line x1="1238" y1="0" x2="4010" y2="340"/><line x1="1312" y1="0" x2="4480" y2="340"/><line x1="1386" y1="0" x2="4950" y2="340"/><line x1="1460" y1="0" x2="5420" y2="340"/><line x1="1534" y1="0" x2="5890" y2="340"/><line x1="1608" y1="0" x2="6360" y2="340"/><line x1="1682" y1="0" x2="6830" y2="340"/><line x1="1756" y1="0" x2="7300" y2="340"/><line x1="-2000" y1="10" x2="3440" y2="10"/><line x1="-2000" y1="26" x2="3440" y2="26"/><line x1="-2000" y1="50" x2="3440" y2="50"/><line x1="-2000" y1="84" x2="3440" y2="84"/><line x1="-2000" y1="130" x2="3440" y2="130"/><line x1="-2000" y1="192" x2="3440" y2="192"/><line x1="-2000" y1="274" x2="3440" y2="274"/></svg></div>
+
+  <div class="wrap bar">
+    <a class="brand" href="#top">StackChan MAX</a>
+    <nav aria-label="Sections">
+      <a class="opt" href="#does">What it does</a>
+      <a class="opt" href="#brain">Pick the AI</a>
+      <a class="opt" href="#claude">How it was built</a>
+      <a href="{{REPO_URL}}">GitHub</a>
+    </nav>
+  </div>
+
+  <div class="wrap hero-grid" id="top">
+    <div>
+      <h1 aria-label="Meet MAX."><span class="st" aria-hidden="true">M-</span><span class="st" aria-hidden="true">M-</span><span class="rest" aria-hidden="true">Meet MAX.</span></h1>
+      <p class="lede">A palm-sized desk robot with a face you can swap and a brain you choose. Custom firmware for the M5Stack StackChan.</p>
+      <div class="cta">
+        <a class="btn btn-main" href="{{REPO_URL}}">Get the code</a>
+        <a class="btn btn-quiet" href="#try">Try it without a robot</a>
+      </div>
+    </div>
+
+    <div class="stage">
+      <figure class="bot" id="bot" data-face="max">
+        <div class="bot-head" id="head">
+          <div class="bot-bezel">
+            <img id="face" src="img/skin-max.gif" width="320" height="240" alt="MAX: a blocky 1980s TV host in sunglasses, blinking and talking on the robot's screen">
+          </div>
+        </div>
+        <div class="bot-neck"></div>
+        <div class="bot-body" aria-hidden="true">
+          <span class="leds"><b></b><b></b><b></b><b></b><b></b><b></b></span>
+          <span class="leds r"><b></b><b></b><b></b><b></b><b></b><b></b></span>
+        </div>
+        <div class="bot-shadow"></div>
+      </figure>
+      <div class="faces">
+        <p id="faces-label">Change its face</p>
+        <div class="seg" role="group" aria-labelledby="faces-label">
+          <button type="button" data-face="max" aria-pressed="true">MAX</button>
+          <button type="button" data-face="volt" aria-pressed="false">VOLT</button>
+          <button type="button" data-face="default" aria-pressed="false">Stock</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<section id="does">
+  <div class="wrap">
+    <h2>What it can do</h2>
+    <ul class="can">
+      <li><h3>Wear a new face</h3><p>MAX, VOLT or the stock face. Switch from the panel or the robot.</p></li>
+      <li><h3>Talk through any AI</h3><p>Claude, ChatGPT or a free one. Change it on a web page.</p></li>
+      <li><h3>Play characters</h3><p>Up to 8, each with a personality, a voice and a face.</p></li>
+      <li><h3>Answer to 11 names</h3><p>Jarvis, Computer, Hi Stack Chan and eight more.</p></li>
+      <li><h3>Move when you ask</h3><p>It turns its head, changes its lights and plays gestures.</p></li>
+      <li><h3>Look where it is going</h3><p>The eyes lead the head into every turn.</p></li>
+      <li><h3>Do small jobs</h3><p>Weather, reminders, pausing a Pi-hole.</p></li>
+      <li><h3>Remember you</h3><p>Write notes once. It knows them in every chat.</p></li>
+      <li><h3>Keep time</h3><p>A clock, a weather display or a stock ticker on your desk.</p></li>
+    </ul>
+
+    <figure class="moods">
+      <img src="img/emotions.png" width="1086" height="418" loading="lazy" alt="Three faces, MAX, VOLT and stock, each shown in six moods: neutral, happy, angry, sad, doubt and sleepy">
+      <figcaption class="cap">Six moods on every face. The AI picks the mood and the face decides how it looks. A new face is one C++ class.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="brain" class="band">
+  <div class="wrap split">
+    <div>
+      <h2>Pick the AI</h2>
+      <p class="lede">The robot is a microphone, a speaker and a face. The thinking happens on your computer, so you choose who does it.</p>
+      <dl class="who">
+        <dt>Paid</dt><dd>Claude, ChatGPT</dd>
+        <dt>Free</dt><dd>Groq, Gemini, OpenRouter, Cerebras, Mistral</dd>
+        <dt>Yours</dt><dd>Any model on Ollama</dd>
+      </dl>
+      <p class="fine">Paste a key, tap who answers. It applies on the next thing you say. Keys never go to the robot.</p>
+    </div>
+    <a class="shot" href="img/bridge-pick.png" aria-label="Open the sign-in page picture at full size">
+      <img src="img/bridge-pick.png" width="1912" height="946" loading="lazy" alt="The sign-in page: Claude is answering now, Groq and Ollama are ready, and hearing and voice come from Groq for free">
+    </a>
+  </div>
+</section>
+
+<section id="panel">
+  <div class="wrap">
+    <h2>A control panel it serves itself</h2>
+    <p class="lede">Open <code>stackchan.local</code> in any browser. No app, no cloud, no install.</p>
+
+    <div class="tabs" role="tablist" aria-label="Control panel pages">
+      <button type="button" role="tab" aria-selected="true" aria-controls="panel-img" data-img="portal-overview.png" data-alt="The Overview page: firmware version, network status and the active character">Overview</button>
+      <button type="button" role="tab" aria-selected="false" aria-controls="panel-img" data-img="portal-personas.png" data-alt="The Personas page with the MAX character open: name, voice, speed, face and personality">Characters</button>
+      <button type="button" role="tab" aria-selected="false" aria-controls="panel-img" data-img="portal-face.png" data-alt="Live sliders for mouth, eyes, gaze, head position and the two light strips">Live control</button>
+      <button type="button" role="tab" aria-selected="false" aria-controls="panel-img" data-img="portal-ai.png" data-alt="The AI backend page: where the robot sends what it hears and which model it asks for">AI</button>
+      <button type="button" role="tab" aria-selected="false" aria-controls="panel-img" data-img="portal-memory.png" data-alt="The Memory page: notes the robot knows in every chat">Memory</button>
+      <button type="button" role="tab" aria-selected="false" aria-controls="panel-img" data-img="portal-update.png" data-alt="The Update page: drop a firmware file to install it">Update</button>
+    </div>
+
+    <div class="panel-view">
+      <a class="shot" id="panel-link" role="tabpanel" href="img/portal-overview.png" aria-label="Open this control panel picture at full size">
+        <img id="panel-img" src="img/portal-overview.png" width="2300" height="1600" loading="lazy" alt="The Overview page: firmware version, network status and the active character">
+      </a>
+      <div class="phone">
+        <img src="img/portal-phone.png" width="780" height="1688" loading="lazy" alt="The same control panel on a phone">
+      </div>
+    </div>
+    <p class="cap">The real page, running against a mock robot with demo data.</p>
+  </div>
+</section>
+
+<section id="claude" class="band">
+  <div class="wrap">
+    <h2>Built with Claude</h2>
+    <p class="lede">I built this with Claude Code, Anthropic's coding assistant. Claude wrote the code. I steered and tested it on the real robot.</p>
+    <ol class="steps">
+      <li><h3>I say what I want</h3><p>"Give it a Max Headroom face."</p></li>
+      <li><h3>Claude writes it</h3><p>After reading M5Stack's source first.</p></li>
+      <li><h3>Claude checks itself</h3><p>A simulator, a mock panel and a fake robot.</p></li>
+      <li><h3>I flash the robot</h3><p>By USB, then paste the boot log back.</p></li>
+      <li><h3>We fix the surprises</h3><p>Real hardware always has some.</p></li>
+    </ol>
+    <div class="after">
+      <p><strong>One catch shaped it all.</strong> Claude's computer has no USB port. It can compile and simulate, but never flash. So the repo ships a simulator, a mock server and a self-test.</p>
+      <p><strong>Make it yours the same way.</strong> Open the repo in Claude Code, or any coding assistant, and start it at <a href="{{REPO_URL}}/blob/main/docs/STATUS.md">docs/STATUS.md</a>.</p>
+    </div>
+  </div>
+</section>
+
+<section id="try">
+  <div class="wrap">
+    <h2>Try it without a robot</h2>
+    <p class="lede">No hardware and no API key. Clone the repo, then run either one.</p>
+    <div class="try">
+      <div class="cmd">
+        <header><h3>Click around the control panel</h3><button type="button" class="copy" data-copy="c1">Copy</button></header>
+        <pre id="c1">git clone {{REPO_URL}}.git
+cd {{REPO_NAME}}
+python3 workshop/portal/mock_server.py --port 8130</pre>
+        <p class="note">Then open <code>http://localhost:8130/</code></p>
+      </div>
+      <div class="cmd">
+        <header><h3>Watch a fake robot hold a conversation</h3><button type="button" class="copy" data-copy="c2">Copy</button></header>
+        <pre id="c2">cd server/bridge
+python3 -m venv .venv &amp;&amp; . .venv/bin/activate
+pip install -r requirements.txt
+python selftest.py</pre>
+        <p class="note">Needs the system <code>libopus</code>. Ends with "all checks passed".</p>
+      </div>
+    </div>
+    <p class="cap" style="margin-top:28px">Have the kit? <a href="{{REPO_URL}}/blob/main/docs/BUILD.md">Build and flash it</a>. There is no prebuilt download.</p>
+  </div>
+</section>
+
+<section id="status" class="band">
+  <div class="wrap">
+    <h2>Honest status</h2>
+    <p class="lede">One person, one real robot. Here is what has been seen working and what has not.</p>
+    <div class="status">
+      <div class="yes">
+        <h3>Seen on the real robot</h3>
+        <ul>
+          <li>The MAX face on the screen</li>
+          <li>The control panel</li>
+          <li>The wake word</li>
+        </ul>
+      </div>
+      <div class="maybe">
+        <h3>Built, not yet confirmed on the robot</h3>
+        <ul>
+          <li>A full spoken conversation</li>
+          <li>VOLT, gaze, live face switching</li>
+          <li>Gestures, weather, Pi-hole</li>
+          <li>Clock, weather and stock screens</li>
+        </ul>
+      </div>
+      <div class="no">
+        <h3>Blocked</h3>
+        <ul>
+          <li>Music from the SD card. The card and the screen share a wire.</li>
+        </ul>
+      </div>
+    </div>
+    <p class="cap" style="margin-top:32px">The detail is in <a href="{{REPO_URL}}/blob/main/docs/STATUS.md">docs/STATUS.md</a>.</p>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <div>
+      <p>Forked from <a href="https://github.com/m5stack/StackChan">M5Stack's StackChan firmware</a>. Stack-chan was created by Shinya Ishikawa and its community. Built on <a href="https://github.com/78/xiaozhi-esp32">xiaozhi-esp32</a> and <a href="https://lvgl.io/">LVGL</a>.</p>
+      <p>MAX is a fan tribute to the 1980s TV character Max Headroom. This project is not affiliated with the owners of that character, with M5Stack, or with any AI provider named here.</p>
+      <p>MIT licence.</p>
+    </div>
+    <div class="ver">
+      <p><strong>Firmware {{FW_VERSION}}</strong></p>
+      <p>Site v{{SITE_VERSION}}</p>
+      <p><a href="{{REPO_URL}}">{{REPO_SLUG}}</a></p>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var bot = document.getElementById("bot"), face = document.getElementById("face"), head = document.getElementById("head");
+  var faces = {
+    max: ["img/skin-max.gif", "MAX: a blocky 1980s TV host in sunglasses, blinking and talking on the robot's screen"],
+    volt: ["img/skin-volt.gif", "VOLT: glowing neon eyes and mouth on a dark screen"],
+    "default": ["img/skin-default.gif", "The stock face: two white dot eyes and a line mouth on a black screen"]
+  };
+  document.querySelectorAll(".seg button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var f = b.getAttribute("data-face");
+      face.src = faces[f][0];
+      face.alt = faces[f][1];
+      bot.setAttribute("data-face", f);
+      document.querySelectorAll(".seg button").forEach(function (o) { o.setAttribute("aria-pressed", o === b ? "true" : "false"); });
+    });
+  });
+  setTimeout(function () { ["volt", "default"].forEach(function (f) { new Image().src = faces[f][0]; }); }, 1500);
+
+  var still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!still && window.matchMedia("(pointer: fine)").matches) {
+    var hero = document.querySelector(".hero");
+    hero.addEventListener("pointermove", function (e) {
+      var r = head.getBoundingClientRect();
+      var dx = Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width / 2)) / 500));
+      head.style.transform = "translateX(" + (dx * 12).toFixed(1) + "px) rotate(" + (dx * 3).toFixed(2) + "deg)";
+    });
+    hero.addEventListener("pointerleave", function () { head.style.transform = ""; });
+  }
+
+  var img = document.getElementById("panel-img"), link = document.getElementById("panel-link");
+  var tabs = document.querySelectorAll(".tabs button");
+  tabs.forEach(function (t) {
+    t.addEventListener("click", function () {
+      img.src = "img/" + t.getAttribute("data-img");
+      link.href = img.src;
+      img.alt = t.getAttribute("data-alt");
+      tabs.forEach(function (o) { o.setAttribute("aria-selected", o === t ? "true" : "false"); });
+    });
+  });
+
+  document.querySelectorAll(".copy").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var text = document.getElementById(b.getAttribute("data-copy")).textContent;
+      var done = function () { b.textContent = "Copied"; setTimeout(function () { b.textContent = "Copy"; }, 1800); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function () {});
+    });
+  });
+})();
+</script>
+</body>
+</html>
